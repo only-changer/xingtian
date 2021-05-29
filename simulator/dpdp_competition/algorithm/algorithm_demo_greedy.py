@@ -200,10 +200,12 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
     return vehicle_id_to_destination, vehicle_id_to_planned_route
 
 def select_vehicle_for_orders(vehicles, items):
-    min_dis = 2147483648
+    min_time = 2147483648
     vehicle = None
     for v in vehicles:
-        v_loc = v.cur_factory_id
+        v_loc = ""
+        if len(v.carrying_items.items) == 0:
+            v_loc = v.cur_factory_id
         if v_loc == "":
             if not v.destination:
                 v_loc = items[0].pickup_factory_id
@@ -214,9 +216,11 @@ def select_vehicle_for_orders(vehicles, items):
                 # else:
                 #     v_loc = v.destination.pickup_items[0].delivery_factory_id
         destination = items[0].pickup_factory_id
-        dis = world.id2factory[v_loc].destinations[destination].distance
-        if dis < min_dis:
-            min_dis = dis
+        tim = world.id2factory[v_loc].destinations[destination].time
+        if len(v.carrying_items.items) == 0:
+            tim -= 100000
+        if tim < min_time:
+            min_time = tim
             vehicle = v
     return vehicle
 
