@@ -139,7 +139,7 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
                     nodelist = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
                     if len(nodelist) < 2:
                         continue
-                    vehicle = select_vehicle_for_orders(vehicles, tmp_items)
+                    vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
                     for node in nodelist:
                         vehicle_id_to_planned_route[vehicle.id].append(node)
                     # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
@@ -159,7 +159,7 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
                 nodelist = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
                 if len(nodelist) < 2:
                     continue
-                vehicle = select_vehicle_for_orders(vehicles, tmp_items)
+                vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
                 for node in nodelist:
                     vehicle_id_to_planned_route[vehicle.id].append(node)
                 # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
@@ -169,7 +169,7 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
             nodelist = __create_pickup_and_delivery_nodes_of_items(items, id_to_factory)
             if len(nodelist) < 2:
                 continue
-            vehicle = select_vehicle_for_orders(vehicles, items)
+            vehicle = select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route)
             for node in nodelist:
                 vehicle_id_to_planned_route[vehicle.id].append(node)
             # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
@@ -201,13 +201,15 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
     return vehicle_id_to_destination, vehicle_id_to_planned_route
 
 
-def select_vehicle_for_orders(vehicles, items):
+def select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route):
     min_time = 2147483648
     vehicle = None
-    for v in vehicles:
+    # perm = np.random.permutation(len(vehicles))
+    for i in range(len(vehicles)):
+        v = vehicles[i]
         tim = 0
         v_loc = ""
-        if len(v.carrying_items.items) == 0:
+        if len(v.carrying_items.items) == 0 and not v.destination:
             v_loc = v.cur_factory_id
         if v_loc == "":
             if not v.destination:
@@ -220,10 +222,22 @@ def select_vehicle_for_orders(vehicles, items):
                 #     v_loc = v.destination.id
                 # else:
                 #     v_loc = v.destination.pickup_items[0].delivery_factory_id
-        destination = items[0].pickup_factory_id
-        tim += world.id2factory[v_loc].destinations[destination].time
-        if len(v.carrying_items.items) == 0:
-            tim -= 100000
+                #     tim += world.id2factory[v.destination.id].destinations[
+                #                v.destination.pickup_items[0].delivery_factory_id].time + v.destination.pickup_items[
+                #                0].unload_time + v.destination.pickup_items[0].load_time
+        cur_loc = v_loc
+        for node in vehicle_id_to_planned_route[v.id]:
+            if node.id == cur_loc:
+                continue
+            tim += world.id2factory[cur_loc].destinations[node.id].time
+            cur_loc = node.id
+            if len(node.pickup_items) > 0:
+                tim += node.pickup_items[0].load_time
+            if len(node.delivery_items) > 0:
+                tim += node.delivery_items[0].unload_time
+        tim += world.id2factory[v_loc].destinations[items[0].pickup_factory_id].time
+        # if len(v.carrying_items.items) == 0:
+        #     tim -= 100000
         if tim < min_time:
             min_time = tim
             vehicle = v
