@@ -37,6 +37,7 @@ for i in range(len(ids)):
     factory2id[ids[i]] = i
 world = World("benchmark/route_info.csv", "benchmark/factory_info.csv")
 
+
 # Not working since for now the simulator do not support redesign route.
 def get_shortest_path(start, end):
     path = paths[factory2id[start]][factory2id[end]]
@@ -199,10 +200,12 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
 
     return vehicle_id_to_destination, vehicle_id_to_planned_route
 
+
 def select_vehicle_for_orders(vehicles, items):
     min_time = 2147483648
     vehicle = None
     for v in vehicles:
+        tim = 0
         v_loc = ""
         if len(v.carrying_items.items) == 0:
             v_loc = v.cur_factory_id
@@ -210,19 +213,22 @@ def select_vehicle_for_orders(vehicles, items):
             if not v.destination:
                 v_loc = items[0].pickup_factory_id
             else:
+                # v_loc = v.destination.id
+                tim += v.destination.leave_time - v.gps_update_time
                 v_loc = v.destination.id
                 # if len(v.destination.pickup_items) == 0:
                 #     v_loc = v.destination.id
                 # else:
                 #     v_loc = v.destination.pickup_items[0].delivery_factory_id
         destination = items[0].pickup_factory_id
-        tim = world.id2factory[v_loc].destinations[destination].time
+        tim += world.id2factory[v_loc].destinations[destination].time
         if len(v.carrying_items.items) == 0:
             tim -= 100000
         if tim < min_time:
             min_time = tim
             vehicle = v
     return vehicle
+
 
 def __calculate_demand(item_list: list):
     demand = 0

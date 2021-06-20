@@ -57,7 +57,7 @@ def get_algorithm_calling_command():
             end_name = file.split('.')[-1]
             algorithm_language = Configs.ALGORITHM_LANGUAGE_MAP.get(end_name)
             if algorithm_language == 'python':
-                return '/home/liuchang/anaconda3/bin/python {}'.format(file)
+                return '/home/liuchang/anaconda3/envs/work/bin/python {}'.format(file)
             elif algorithm_language == 'java':
                 return 'java {}'.format(file.split('.')[0])
             # c和c++调用方式一样，但系统不同调用方式有异
