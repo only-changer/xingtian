@@ -108,8 +108,19 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
             # vehicle_id_to_planned_route[vehicle_id].append(pickup_node)
             # vehicle_id_to_planned_route[vehicle_id].append(delivery_node)
             nodelist = __create_pickup_and_delivery_nodes_of_items(pickup_items, id_to_factory)
-            for node in nodelist:
-                vehicle_id_to_planned_route[vehicle.id].append(node)
+            pickup_node = nodelist[0]
+            delivery_node = nodelist[1]
+            if len(pickup_node.pickup_items) > 0:
+                check = 0
+                if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
+                    n = vehicle_id_to_planned_route[vehicle.id][-1]
+                    if n.id == pickup_node.id:
+                        n.pickup_items += pickup_node.pickup_items
+                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                        check = 1
+                if not check:
+                    vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
+                    vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
             pre_matching_item_ids.extend([item.id for item in pickup_items])
 
     # dispatch unallocated orders to vehicles
@@ -140,8 +151,19 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
                     if len(nodelist) < 2:
                         continue
                     vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
-                    for node in nodelist:
-                        vehicle_id_to_planned_route[vehicle.id].append(node)
+                    pickup_node = nodelist[0]
+                    delivery_node = nodelist[1]
+                    if len(pickup_node.pickup_items) > 0:
+                        check = 0
+                        if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
+                            n = vehicle_id_to_planned_route[vehicle.id][-1]
+                            if n.id == pickup_node.id:
+                                n.pickup_items += pickup_node.pickup_items
+                                vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                                check = 1
+                        if not check:
+                            vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
+                            vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
                     # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
                     # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
 
@@ -160,8 +182,19 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
                 if len(nodelist) < 2:
                     continue
                 vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
-                for node in nodelist:
-                    vehicle_id_to_planned_route[vehicle.id].append(node)
+                pickup_node = nodelist[0]
+                delivery_node = nodelist[1]
+                if len(pickup_node.pickup_items) > 0:
+                    check = 0
+                    if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
+                        n = vehicle_id_to_planned_route[vehicle.id][-1]
+                        if n.id == pickup_node.id:
+                            n.pickup_items += pickup_node.pickup_items
+                            vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                            check = 1
+                    if not check:
+                        vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
+                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
                 # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
                 # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
         else:
@@ -170,8 +203,20 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
             if len(nodelist) < 2:
                 continue
             vehicle = select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route)
-            for node in nodelist:
-                vehicle_id_to_planned_route[vehicle.id].append(node)
+
+            pickup_node = nodelist[0]
+            delivery_node = nodelist[1]
+            if len(pickup_node.pickup_items) > 0:
+                check = 0
+                if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
+                    n = vehicle_id_to_planned_route[vehicle.id][-1]
+                    if n.id == pickup_node.id:
+                        n.pickup_items += pickup_node.pickup_items
+                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                        check = 1
+                if not check:
+                    vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
+                    vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
             # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
             # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
 
@@ -204,9 +249,9 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
 def select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route):
     min_time = 2147483648
     vehicle = None
-    # perm = np.random.permutation(len(vehicles))
+    perm = np.random.permutation(len(vehicles))
     for i in range(len(vehicles)):
-        v = vehicles[i]
+        v = vehicles[perm[i]]
         tim = 0
         v_loc = ""
         if len(v.carrying_items.items) == 0 and not v.destination:
