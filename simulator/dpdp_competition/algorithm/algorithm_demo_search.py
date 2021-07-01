@@ -32,24 +32,15 @@ from algorithm.wolrd import World
 from collections import defaultdict
 import signal
 
-import os
-dir_path = os.path.dirname(os.path.realpath(__file__))
-print(dir_path)
 
-
-ids = np.load(dir_path+"/factory2id.npy")
-paths = np.load(dir_path+"/shortest_path.npy")
+ids = np.load("algorithm/factory2id.npy")
+paths = np.load("algorithm/shortest_path.npy")
 factory2id = {}
 for i in range(len(ids)):
     factory2id[ids[i]] = i
-
-base_path = "D:/OneDrive/OneDrive - Microsoft/Backup/Code/HW ICAPS/xingtian/simulator/dpdp_competition/"
-world = World(base_path+"benchmark/route_info.csv",
-              base_path+"benchmark/factory_info.csv")
+world = World("benchmark/route_info.csv", "benchmark/factory_info.csv")
 
 # Not working since for now the simulator do not support redesign route.
-
-
 def get_shortest_path(start, end):
     path = paths[factory2id[start]][factory2id[end]]
     shortest_path = []
@@ -123,17 +114,19 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
     vehicles = [vehicle for vehicle in id_to_vehicle.values()]
 
 
-    # Running Dispatch Algorithms
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(120)   # 2min
-    try:
-        # search top 3
-        vehicle_id_to_planned_route = search_dispatch_topn_vehicles(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
-        print("Search Topn Dispatch Finished")
-    except Exception as e:
-        print(e)
-        vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
-        print("Greedy Dispatch Finished")
+    vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
+
+    # # Running Dispatch Algorithms
+    # signal.signal(signal.SIGALRM, signal_handler)
+    # signal.alarm(120)   # 2min
+    # try:
+    #     # search top 3
+    #     vehicle_id_to_planned_route = search_dispatch_topn_vehicles(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
+    #     print("Search Topn Dispatch Finished")
+    # except Exception as e:
+    #     print(e)
+    #     vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
+    #     print("Greedy Dispatch Finished")
 
 
     # create the output of the algorithm
@@ -200,11 +193,12 @@ def search_dispatch_topn_vehicles(id_to_unallocated_order_item, pre_matching_ite
 
     return vehicle_id_to_planned_route
 
+
 # 搜索最优分配
 def __dispatch_orders_to_vehicles(orders, vehicles):
-    order_ids_to_demands = __calculate_order_ids_to_demands(orders)
+    # order_ids_to_demands = __calculate_order_ids_to_demands(orders)
     order_ids_to_vehicles_choice_list = __select_top_n_vehicles_for_orders(vehicles, orders)
-    vehicle_capacity_ocupied = defaultdict(float)
+    # vehicle_capacity_ocupied = defaultdict(float)
 
     # init
     cur_dispatch = defaultdict(list)
