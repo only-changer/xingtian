@@ -113,20 +113,20 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
     # get vehicles
     vehicles = [vehicle for vehicle in id_to_vehicle.values()]
 
-
     vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
 
-    # # Running Dispatch Algorithms
-    # signal.signal(signal.SIGALRM, signal_handler)
-    # signal.alarm(120)   # 2min
-    # try:
-    #     # search top 3
-    #     vehicle_id_to_planned_route = search_dispatch_topn_vehicles(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
-    #     print("Search Topn Dispatch Finished")
-    # except Exception as e:
-    #     print(e)
-    #     vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
-    #     print("Greedy Dispatch Finished")
+
+    # Running Dispatch Algorithms
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(120)   # 2min
+    try:
+        # search top 3
+        vehicle_id_to_planned_route = search_dispatch_topn_vehicles(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
+        print("Search Topn Dispatch Finished")
+    except Exception as e:
+        print(e)
+        vehicle_id_to_planned_route = greedy_dispatch(id_to_unallocated_order_item, pre_matching_item_ids, capacity, id_to_factory, vehicles, vehicle_id_to_planned_route)
+        print("Greedy Dispatch Finished")
 
 
     # create the output of the algorithm
