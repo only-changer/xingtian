@@ -58,6 +58,31 @@ def get_shortest_path(start, end):
     return shortest_path, distance, time
 
 
+def optimize_route(route):
+    r = []
+    for node in route:
+        if len(r) == 0:
+            r.append(copy.deepcopy(node))
+        else:
+            if node.id == r[-1].id:
+                # if len(node.pickup_items) == 0 and len(r[-1].pickup_items) == 0:
+                #     for item in node.delivery_items:
+                #         r[-1].delivery_items.append(item)
+                # elif len(node.delivery_items) == 0 and len(r[-1].delivery_items) == 0:
+                #     for item in node.pickup_items:
+                #         r[-1].pickup_items.append(item)
+                # elif len(node.delivery_items) == 0:
+                for item in node.pickup_items:
+                    r[-1].pickup_items.append(item)
+                for item in node.delivery_items:
+                    r[-1].delivery_items.append(item)
+                # else:
+                #     r.append(copy.deepcopy(node))
+            else:
+                r.append(copy.deepcopy(node))
+    return r
+
+
 # naive dispatching method
 def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicle: dict, id_to_factory: dict):
     """
@@ -102,27 +127,36 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
     # for the empty vehicle, it has been allocated to the order, but have not yet arrived at the pickup factory
     pre_matching_item_ids = []
     for vehicle_id, vehicle in id_to_vehicle.items():
-        if vehicle.carrying_items.is_empty() and vehicle.destination is not None:
+        if (vehicle.carrying_items.is_empty() or len(
+                vehicle.destination.pickup_items) > 0) and vehicle.destination is not None:
             pickup_items = vehicle.destination.pickup_items
             # pickup_node, delivery_node = __create_pickup_and_delivery_nodes_of_items(pickup_items, id_to_factory)
             # vehicle_id_to_planned_route[vehicle_id].append(pickup_node)
             # vehicle_id_to_planned_route[vehicle_id].append(delivery_node)
             nodelist = __create_pickup_and_delivery_nodes_of_items(pickup_items, id_to_factory)
             pickup_node = nodelist[0]
-            delivery_node = nodelist[1]
-            if len(pickup_node.pickup_items) > 0:
-                check = 0
-                if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
-                    n = vehicle_id_to_planned_route[vehicle.id][-1]
-                    if n.id == pickup_node.id:
-                        n.pickup_items += pickup_node.pickup_items
-                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                        check = 1
-                if not check:
-                    vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                    vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+            if vehicle.carrying_items.is_empty():
+                vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
+                for node in nodelist[1:]:
+                    vehicle_id_to_planned_route[vehicle.id].append(node)
+            else:
+                c = -1
+                d_list = vehicle_id_to_planned_route[vehicle_id]
+                for j in range(len(d_list)):
+                    if d_list[j].id == pickup_node.id and len(d_list[j].delivery_items) > 0 and len(
+                            vehicle.destination.delivery_items) > 0 and d_list[j].delivery_items[0].id == \
+                            vehicle.destination.delivery_items[0].id:
+                        c = j
+                        break
+                # vehicle_id_to_planned_route[vehicle.id].insert(c + 1, pickup_node)
+                for i in range(len(nodelist)):
+                    # if i == 0:
+                    #     continue
+                    vehicle_id_to_planned_route[vehicle.id].insert(c + 1 + i, nodelist[i])
             pre_matching_item_ids.extend([item.id for item in pickup_items])
 
+    for vehicle_id, _ in id_to_vehicle.items():
+        vehicle_id_to_planned_route[vehicle_id] = optimize_route(vehicle_id_to_planned_route[vehicle_id])
     # dispatch unallocated orders to vehicles
     capacity = __get_capacity_of_vehicle(id_to_vehicle)
 
@@ -136,6 +170,7 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
         order_id_to_items[order_id].append(item)
 
     # vehicle_index = 0
+    upcoming_items = []
     vehicles = [vehicle for vehicle in id_to_vehicle.values()]
     for order_id, items in order_id_to_items.items():
         demand = __calculate_demand(items)
@@ -144,30 +179,13 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
             tmp_items = []
             for item in items:
                 if cur_demand + item.demand > capacity:
-                    # pickup_node, delivery_node = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
-                    # if pickup_node is None or delivery_node is None:
-                    #     continue
                     nodelist = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
                     if len(nodelist) < 2:
                         continue
-                    vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
                     pickup_node = nodelist[0]
                     delivery_node = nodelist[1]
                     if len(pickup_node.pickup_items) > 0:
-                        check = 0
-                        if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
-                            n = vehicle_id_to_planned_route[vehicle.id][-1]
-                            if n.id == pickup_node.id:
-                                n.pickup_items += pickup_node.pickup_items
-                                vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                                check = 1
-                        if not check:
-                            vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                            vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                    # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                    # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-
-                    # vehicle_index = (vehicle_index + 1) % len(vehicles)
+                        upcoming_items.append([tmp_items, pickup_node, delivery_node])
                     tmp_items = []
                     cur_demand = 0
 
@@ -175,53 +193,65 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
                 cur_demand += item.demand
 
             if len(tmp_items) > 0:
-                # pickup_node, delivery_node = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
-                # if pickup_node is None or delivery_node is None:
-                #     continue
                 nodelist = __create_pickup_and_delivery_nodes_of_items(tmp_items, id_to_factory)
                 if len(nodelist) < 2:
                     continue
-                vehicle = select_vehicle_for_orders(vehicles, tmp_items, vehicle_id_to_planned_route)
                 pickup_node = nodelist[0]
                 delivery_node = nodelist[1]
                 if len(pickup_node.pickup_items) > 0:
-                    check = 0
-                    if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
-                        n = vehicle_id_to_planned_route[vehicle.id][-1]
-                        if n.id == pickup_node.id:
-                            n.pickup_items += pickup_node.pickup_items
-                            vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                            check = 1
-                    if not check:
-                        vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                    upcoming_items.append([tmp_items, pickup_node, delivery_node])
         else:
-            # pickup_node, delivery_node = __create_pickup_and_delivery_nodes_of_items(items, id_to_factory)
             nodelist = __create_pickup_and_delivery_nodes_of_items(items, id_to_factory)
             if len(nodelist) < 2:
                 continue
-            vehicle = select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route)
 
             pickup_node = nodelist[0]
             delivery_node = nodelist[1]
             if len(pickup_node.pickup_items) > 0:
-                check = 0
-                if len(vehicle_id_to_planned_route[vehicle.id]) > 0:
-                    n = vehicle_id_to_planned_route[vehicle.id][-1]
-                    if n.id == pickup_node.id:
-                        n.pickup_items += pickup_node.pickup_items
-                        vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-                        check = 1
-                if not check:
-                    vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-                    vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
-            # vehicle_id_to_planned_route[vehicle.id].append(pickup_node)
-            # vehicle_id_to_planned_route[vehicle.id].append(delivery_node)
+                upcoming_items.append([items, pickup_node, delivery_node])
+    N = 3
+    max_Orders = 300
+    best_planned = None
+    best_delay = 2147483648000
+    best_redundancy = 0
+    for _ in range(N):
+        pre_planned = copy.deepcopy(vehicle_id_to_planned_route)
+        perm = np.random.permutation(len(upcoming_items))
+        cost_list = {}
+        check_list = {}
+        # length = min(len(upcoming_items), max_Orders)
+        length = len(upcoming_items)
+        for i in range(length):
+            # print(i)
+            # item = upcoming_items[i][0]
+            # pickup_node = upcoming_items[i][1]
+            # delivery_node = upcoming_items[i][2]
+            item = upcoming_items[perm[i]][0]
+            pickup_node = upcoming_items[perm[i]][1]
+            delivery_node = upcoming_items[perm[i]][2]
+            best_vehicle, best_planned_route, best_cost = select_vehicle_for_orders(vehicles, item, pre_planned, pickup_node,
+                                                                              delivery_node, cost_list)
+            pre_planned[best_vehicle.id] = best_planned_route
+            cost_list[best_vehicle.id] = best_cost
+            check_list[best_vehicle.id] = best_planned_route
+        delay = 0
+        redundancy = 0
+        for v in vehicles:
+            cost, r = route_cost(v, pre_planned[v.id])
+            if cost >= 0:
+                delay += cost
+                if delay > best_delay:
+                    break
+                redundancy += r
+            else:
+                delay = 21474836480000
+                break
+        if 0 <= delay < best_delay or (delay == best_delay and redundancy > best_redundancy):
+            best_delay = delay
+            best_redundancy = redundancy
+            best_planned = pre_planned
+    vehicle_id_to_planned_route = best_planned
 
-        # vehicle_index = (vehicle_index + 1) % len(vehicles)
-    # print(route_cost(vehicles[0], vehicle_id_to_planned_route[vehicles[0].id]))
     # create the output of the algorithm
     for vehicle_id, vehicle in id_to_vehicle.items():
         origin_planned_route = vehicle_id_to_planned_route.get(vehicle_id)
@@ -247,71 +277,89 @@ def dispatch_orders_to_vehicles(id_to_unallocated_order_item: dict, id_to_vehicl
 
 
 def route_cost(vehicle, route):
-    time = vehicle.gps_update_time
+    if len(route) == 0:
+        return 0, 0
+    if vehicle.destination is not None:
+        time = vehicle.destination.arrive_time
+        v_loc = vehicle.destination.id
+    else:
+        time = vehicle.gps_update_time
+        v_loc = vehicle.cur_factory_id
     # todo : more accurate starting time
-    v_loc = route[0].id
+
     capacity_limit = vehicle.board_capacity
     capacity = 0
     for item in vehicle.carrying_items.items:
         capacity += item.demand
+        if capacity > capacity_limit:
+            return -1, 0
     cost = 0
+    redundancy = 0
     for node in route:
         time += world.id2factory[v_loc].destinations[node.id].time
         for item in node.delivery_items:
             time += item.unload_time
-            cost += max(0, time - item.committed_completion_time)
+            cost += max(0, time - item.committed_completion_time) ** 2
+            redundancy += item.committed_completion_time - time
             capacity -= item.demand
             # todo : cost is per item or per order?
         for item in node.pickup_items:
             time += item.load_time
             capacity += item.demand
             if capacity > capacity_limit:
-                return -1
+                return -1, 0
         v_loc = node.id
-    return cost
+    return cost, redundancy
 
 
-def select_vehicle_for_orders(vehicles, items, vehicle_id_to_planned_route):
-    min_time = 2147483648
-    vehicle = None
+def select_vehicle_for_orders(vehicles, items, pre_planned, pickup_node, delivery_node, cost_list):
+    best_planned_route = None
+    best_vehicle = None
+    best_cost = 2147483648000
+    best_redundancy = 0
     perm = np.random.permutation(len(vehicles))
-    for i in range(len(vehicles)):
-        v = vehicles[perm[i]]
-        tim = 0
-        v_loc = ""
-        if len(v.carrying_items.items) == 0 and not v.destination:
-            v_loc = v.cur_factory_id
-        if v_loc == "":
-            if not v.destination:
-                v_loc = items[0].pickup_factory_id
-            else:
-                # v_loc = v.destination.id
-                tim += v.destination.leave_time - v.gps_update_time
-                v_loc = v.destination.id
-                # if len(v.destination.pickup_items) == 0:
-                #     v_loc = v.destination.id
-                # else:
-                #     v_loc = v.destination.pickup_items[0].delivery_factory_id
-                #     tim += world.id2factory[v.destination.id].destinations[
-                #                v.destination.pickup_items[0].delivery_factory_id].time + v.destination.pickup_items[
-                #                0].unload_time + v.destination.pickup_items[0].load_time
-        cur_loc = v_loc
-        for node in vehicle_id_to_planned_route[v.id]:
-            if node.id == cur_loc:
-                continue
-            tim += world.id2factory[cur_loc].destinations[node.id].time
-            cur_loc = node.id
-            if len(node.pickup_items) > 0:
-                tim += node.pickup_items[0].load_time
-            if len(node.delivery_items) > 0:
-                tim += node.delivery_items[0].unload_time
-        tim += world.id2factory[v_loc].destinations[items[0].pickup_factory_id].time
-        # if len(v.carrying_items.items) == 0:
-        #     tim -= 100000
-        if tim < min_time:
-            min_time = tim
-            vehicle = v
-    return vehicle
+    for v in range(len(vehicles)):
+        vehicle = vehicles[perm[v]]
+        # vehicle = vehicles[v]
+        # if vehicle.id in cost_list:
+        #     continue
+        per_cost = 2147483648000
+        per_redundancy = 0
+        per_route = []
+        for i in range(len(pre_planned[vehicle.id])):
+            # if vehicle.id in cost_list:
+            #     route = [n for n in pre_planned[vehicle.id]]
+            #     route.append(pickup_node)
+            #     route.append(delivery_node)
+            #     route = optimize_route(route)
+            #     per_cost, per_redundancy = route_cost(vehicle, route)
+            #     per_route = route
+            #     break
+            # route = copy.deepcopy(pre_planned[vehicle.id])
+            route = [n for n in pre_planned[vehicle.id]]
+            if len(pickup_node.pickup_items) > 0:
+                route.insert(i + 1, pickup_node)
+                route.insert(i + 2, delivery_node)
+            route = optimize_route(route)
+            cost, redundancy = route_cost(vehicle, route)
+            if 0 <= cost < per_cost or (cost == per_cost and redundancy > per_redundancy):
+                per_cost = cost
+                per_redundancy = redundancy
+                per_route = route
+        if len(pre_planned[vehicle.id]) == 0:
+            # route = copy.deepcopy(pre_planned[vehicle.id])
+            route = [n for n in pre_planned[vehicle.id]]
+            route.append(pickup_node)
+            route.append(delivery_node)
+            per_cost, per_redundancy = route_cost(vehicle, route)
+            per_route = route
+        if 0 <= per_cost < best_cost or (per_cost == best_cost and per_redundancy > best_redundancy):
+            best_cost = per_cost
+            best_redundancy = per_redundancy
+            best_planned_route = per_route
+            best_vehicle = vehicle
+
+    return best_vehicle, best_planned_route, best_cost
 
 
 def __calculate_demand(item_list: list):
@@ -328,12 +376,12 @@ def __get_capacity_of_vehicle(id_to_vehicle: dict):
 
 def __create_pickup_and_delivery_nodes_of_items(items: list, id_to_factory: dict):
     pickup_factory_id = __get_pickup_factory_id(items)
-    delivery_factory_id = __get_delivery_factory_id(items)
-    if len(pickup_factory_id) == 0 or len(delivery_factory_id) == 0:
+    # delivery_factory_id = __get_delivery_factory_id(items)
+    if len(pickup_factory_id) == 0:
         return None, None
 
     pickup_factory = id_to_factory.get(pickup_factory_id)
-    delivery_factory = id_to_factory.get(delivery_factory_id)
+    # delivery_factory = id_to_factory.get(delivery_factory_id)
     pickup_node = Node(pickup_factory.id, pickup_factory.lng, pickup_factory.lat, copy.copy(items), [])
     nodelist = [pickup_node]
     # path = get_shortest_path(pickup_factory_id, delivery_factory_id)[0]
@@ -341,13 +389,25 @@ def __create_pickup_and_delivery_nodes_of_items(items: list, id_to_factory: dict
     #     if i == 0 or i == len(path) - 1:
     #         continue
     #     nodelist.append(Node(path[i], world.id2factory[path[i]].lon, world.id2factory[path[i]].lat, [], []))
-
-    delivery_items = []
+    d_list = []
+    items_list = []
     last_index = len(items) - 1
     for i in range(len(items)):
-        delivery_items.append(items[last_index - i])
-    delivery_node = Node(delivery_factory.id, delivery_factory.lng, delivery_factory.lat, [], copy.copy(delivery_items))
-    nodelist.append(delivery_node)
+        d_id = items[last_index - i].delivery_factory_id
+        if d_id not in d_list:
+            d_list.append(d_id)
+            items_list.append([items[last_index - i]])
+        else:
+            if d_id == d_list[-1]:
+                items_list[-1].append(items[last_index - i])
+            else:
+                d_list.append(d_id)
+                items_list.append([items[last_index - i]])
+
+    for i in range(len(d_list)):
+        delivery_factory = id_to_factory[d_list[i]]
+        nodelist.append(
+            Node(delivery_factory.id, delivery_factory.lng, delivery_factory.lat, [], copy.copy(items_list[i])))
     return nodelist
 
 

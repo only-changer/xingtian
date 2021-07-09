@@ -19,12 +19,13 @@
 # THE SOFTWARE
 
 import traceback
-
+from datetime import datetime
 from src.utils.logging_engine import logger
-from algorithm.algorithm_demo_greedy import scheduling
+from algorithm.algorithm_demo_greedy_plus import scheduling
 
 
 if __name__ == '__main__':
+    time1 = datetime.now()
     try:
         scheduling()
         print("SUCCESS")
@@ -32,3 +33,5 @@ if __name__ == '__main__':
         logger.error("Failed to run algorithm")
         logger.error(f"Error: {e}, {traceback.format_exc()}")
         print("FAIL")
+    time2 = datetime.now()
+    print('Training time: %s Seconds' % (time2 - time1))
